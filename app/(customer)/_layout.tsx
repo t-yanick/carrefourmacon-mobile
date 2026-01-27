@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Colors } from '@/constants/colors';
+import { Text } from 'react-native';
 
 export default function CustomerLayout() {
   return (
@@ -64,7 +65,12 @@ export default function CustomerLayout() {
 }
 
 const TabIcon = ({ name, color }: { name: string; color: string }) => (
-  <span style={{ fontSize: 24, filter: color === Colors.primary ? 'none' : 'grayscale(100%)' }}>
+  <Text 
+    style={{ 
+      fontSize: 24, 
+      opacity: color === Colors.primary ? 1 : 0.5 
+    }}
+  >
     {name}
-  </span>
+  </Text>
 );

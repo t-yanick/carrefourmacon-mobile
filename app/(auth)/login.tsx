@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Input } from '@/components/common/Input';
 import { Button } from '@/components/common/Button';
 import { Colors } from '@/constants/colors';
-import { PHONE_CONFIG } from '@/constants/config';
+import { PHONE_CONFIG, APP_CONFIG } from '@/constants/config';
 import { authApi } from '@/api/auth';
 import Toast from 'react-native-toast-message';
 
@@ -13,6 +13,11 @@ export default function LoginScreen() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Test API connection on mount
+  useEffect(() => {
+    console.log('API URL:', APP_CONFIG.apiUrl);
+  }, []);
 
   const validatePhoneNumber = (phone: string): boolean => {
     // Remove spaces and dashes
@@ -46,7 +51,15 @@ export default function LoginScreen() {
       // Format phone number with country code
       const fullPhoneNumber = `${PHONE_CONFIG.countryCode}${phoneNumber.replace(/[\s-]/g, '')}`;
 
-      const response = await authApi.sendOTP({ phoneNumber: fullPhoneNumber });
+      console.log('=== OTP DEBUG INFO ===');
+      console.log('Phone Number:', fullPhoneNumber);
+      console.log('API URL:', APP_CONFIG.apiUrl);
+      console.log('Full endpoint:', `${APP_CONFIG.apiUrl}/auth/send-otp`);
+      console.log('=====================');
+
+      const response = await authApi.sendOTP({ phone: fullPhoneNumber });
+
+      console.log('OTP Response SUCCESS:', response);
 
       Toast.show({
         type: 'success',
@@ -60,12 +73,30 @@ export default function LoginScreen() {
         params: { phoneNumber: fullPhoneNumber },
       });
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Failed to send OTP. Please try again.';
+      console.error('=== OTP ERROR DEBUG ===');
+      console.error('Error type:', err.name);
+      console.error('Error message:', err.message);
+      console.error('Error response:', err.response);
+      console.error('Error response data:', err.response?.data);
+      console.error('Error response status:', err.response?.status);
+      console.error('Error config:', err.config);
+      console.error('Is network error?', err.message === 'Network Error');
+      console.error('======================');
+      
+      let errorMessage = 'Failed to send OTP. Please try again.';
+      
+      if (err.message === 'Network Error' || !err.response) {
+        errorMessage = 'Cannot connect to server. Please check:\n1. Backend is running\n2. You are using tunnel mode\n3. .env is configured correctly';
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      
       setError(errorMessage);
       Toast.show({
         type: 'error',
-        text1: 'Error',
+        text1: 'Connection Error',
         text2: errorMessage,
+        visibilityTime: 6000,
       });
     } finally {
       setIsLoading(false);

@@ -8,6 +8,7 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,15 +23,16 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  // Fetch categories
-  const { data: categories } = useQuery({
+  // Fetch categories - Added .data access and fallback array
+  const { data: categoriesResponse } = useQuery({
     queryKey: ['categories'],
     queryFn: () => providersApi.getCategories(),
   });
+  const categories = categoriesResponse?.data || [];
 
-  // Fetch providers
+  // Fetch providers - Added .data access and fallback
   const {
-    data: providersData,
+    data: providersResponse,
     isLoading,
     refetch,
     isRefreshing,
@@ -43,6 +45,8 @@ export default function HomeScreen() {
         limit: 20,
       }),
   });
+  
+  const providers = providersResponse?.data?.providers || [];
 
   const handleProviderPress = (providerId: string) => {
     router.push(`/provider/${providerId}`);
@@ -53,7 +57,7 @@ export default function HomeScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.greeting}>
-          Hello, {user?.fullName || 'Guest'}! 👋
+          Hello, {user?.name || 'Guest'}! 👋
         </Text>
         <Text style={styles.subtitle}>Find the perfect service provider</Text>
       </View>
@@ -96,7 +100,8 @@ export default function HomeScreen() {
             </Text>
           </TouchableOpacity>
 
-          {categories?.map((category) => (
+          {/* Fixed map by ensuring categories is an array */}
+          {Array.isArray(categories) && categories.map((category: any) => (
             <TouchableOpacity
               key={category.id}
               style={[
@@ -123,22 +128,23 @@ export default function HomeScreen() {
       <View style={styles.providersSection}>
         <Text style={styles.sectionTitle}>
           {selectedCategory
-            ? categories?.find((c) => c.id === selectedCategory)?.name
+            ? categories?.find((c: any) => c.id === selectedCategory)?.name
             : 'All Providers'}
         </Text>
 
-        {isLoading && !providersData ? (
+        {isLoading && !providersResponse ? (
           <View style={styles.centerContent}>
+            <ActivityIndicator color={Colors.primary} size="large" />
             <Text style={styles.loadingText}>Loading providers...</Text>
           </View>
-        ) : providersData?.providers.length === 0 ? (
+        ) : providers.length === 0 ? (
           <View style={styles.centerContent}>
             <Text style={styles.emptyText}>No providers found</Text>
             <Text style={styles.emptySubtext}>Try a different search or category</Text>
           </View>
         ) : (
           <FlatList
-            data={providersData?.providers || []}
+            data={providers}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <ProviderCard
@@ -149,7 +155,7 @@ export default function HomeScreen() {
             contentContainerStyle={styles.listContent}
             refreshControl={
               <RefreshControl
-                refreshing={isRefreshing}
+                refreshing={isRefreshing || false}
                 onRefresh={refetch}
                 tintColor={Colors.primary}
               />
@@ -259,6 +265,7 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     color: Colors.text.secondary,
+    marginTop: 10,
   },
   emptyText: {
     fontSize: 18,

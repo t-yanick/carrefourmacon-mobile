@@ -57,6 +57,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (newToken: string, newUser: User) => {
     try {
+            // Safety Check: Prevent AsyncStorage from crashing if values are missing
+      if (!newToken || !newUser) {
+        console.error('AuthContext: Login failed due to missing token or user data', { newToken, newUser });
+        return; 
+      }
       await Promise.all([
         storage.setToken(newToken),
         storage.setUser(newUser),

@@ -53,7 +53,7 @@ export default function VerifyOTPScreen() {
     }
   };
 
-  const handleVerifyOTP = async (otpCode?: string) => {
+    const handleVerifyOTP = async (otpCode?: string) => {
     const code = otpCode || otp.join('');
     
     if (code.length !== OTP_CONFIG.length) {
@@ -69,11 +69,17 @@ export default function VerifyOTPScreen() {
 
     try {
       const response = await authApi.verifyOTP({
-        phoneNumber: phoneNumber!,
-        otp: code,
+        phone: phoneNumber!,
+        code: code,
       });
 
-      await login(response.token, response.user);
+      // Correctly extract token and user from the response.data wrapper
+      if (response.success && response.data) {
+        await login(response.data.token, response.data.user);
+      } else {
+        // Fallback for different API structures
+        await login(response.token, response.user);
+      }
 
       Toast.show({
         type: 'success',
@@ -82,7 +88,7 @@ export default function VerifyOTPScreen() {
       });
 
       // Navigate based on role
-      if (response.user.role === UserRole.PROVIDER) {
+      if (response.user?.role === UserRole.PROVIDER) {
         router.replace('/(provider)/dashboard');
       } else {
         router.replace('/(customer)/home');
@@ -105,7 +111,7 @@ export default function VerifyOTPScreen() {
     setIsResending(true);
 
     try {
-      await authApi.sendOTP({ phoneNumber: phoneNumber! });
+      await authApi.sendOTP({ phone: phoneNumber! });
       
       Toast.show({
         type: 'success',
