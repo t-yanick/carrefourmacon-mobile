@@ -20,7 +20,7 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({ provider, onPress })
           ) : (
             <View style={[styles.image, styles.placeholder]}>
               <Text style={styles.placeholderText}>
-                {provider.businessName.charAt(0).toUpperCase()}
+                {(provider.businessName?.charAt(0) || 'P').toUpperCase()}
               </Text>
             </View>
           )}
@@ -53,11 +53,19 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({ provider, onPress })
           </View>
 
           <View style={styles.details}>
-            <View style={styles.ratingRow}>
-              <Text style={styles.rating}>⭐ {provider.rating.toFixed(1)}</Text>
-              <Text style={styles.reviews}>({provider.totalReviews})</Text>
+             <View style={styles.ratingRow}>
+              {/* Use Number() and || 0 to ensure toFixed(1) always has a value to work with */}
+              <Text style={styles.rating}>
+                ⭐ {(Number(provider.rating) || 0).toFixed(1)}
+              </Text>
+              <Text style={styles.reviews}>
+                ({provider.totalReviews || 0})
+              </Text>
             </View>
-            <Text style={styles.location}>📍 {provider.city}</Text>
+              {/* Add a fallback for city in case it is null */}
+            <Text style={styles.location}>
+              📍 {provider.city || 'Location not set'}
+            </Text>
           </View>
 
           {provider.priceRange && (

@@ -19,17 +19,22 @@ import { Colors } from '@/constants/colors';
 export default function ProviderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  const { data: provider, isLoading } = useQuery({
+  const { data: response, isLoading } = useQuery({
     queryKey: ['provider', id],
     queryFn: () => providersApi.getProvider(id!),
     enabled: !!id,
   });
 
-  const { data: reviews } = useQuery({
+  // Extract provider from response.data (standard Axios pattern)
+  const provider = response?.data || response;
+
+  const { data: reviewsResponse } = useQuery({
     queryKey: ['provider-reviews', id],
     queryFn: () => providersApi.getProviderReviews(id!),
     enabled: !!id,
   });
+  
+  const reviews = reviewsResponse?.data || reviewsResponse || [];
 
   const handleBookNow = () => {
     router.push({
@@ -50,47 +55,48 @@ export default function ProviderDetailScreen() {
     return (
       <View style={styles.loadingContainer}>
         <Text style={styles.errorText}>Provider not found</Text>
+        <Button title="Go Back" onPress={() => router.back()} />
       </View>
     );
   }
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScrollView>
-        {/* Cover Image */}
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Cover Image Section */}
         <View style={styles.coverContainer}>
           {provider.coverImage ? (
             <Image source={{ uri: provider.coverImage }} style={styles.coverImage} />
           ) : (
             <View style={[styles.coverImage, styles.coverPlaceholder]}>
               <Text style={styles.coverPlaceholderText}>
-                {provider.businessName.charAt(0).toUpperCase()}
+                {(provider.businessName?.charAt(0) || 'P').toUpperCase()}
               </Text>
             </View>
           )}
 
-          {/* Back Button */}
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>←</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Provider Info */}
         <View style={styles.infoSection}>
+          {/* Profile Image Section */}
           <View style={styles.profileContainer}>
             {provider.profileImage ? (
               <Image source={{ uri: provider.profileImage }} style={styles.profileImage} />
             ) : (
               <View style={[styles.profileImage, styles.profilePlaceholder]}>
                 <Text style={styles.profilePlaceholderText}>
-                  {provider.businessName.charAt(0).toUpperCase()}
+                  {(provider.businessName?.charAt(0) || 'P').toUpperCase()}
                 </Text>
               </View>
             )}
           </View>
 
+          {/* Name and Verification */}
           <View style={styles.nameRow}>
-            <Text style={styles.businessName}>{provider.businessName}</Text>
+            <Text style={styles.businessName}>{provider.businessName || 'Professional Provider'}</Text>
             {provider.isVerified && (
               <View style={styles.verifiedBadge}>
                 <Text style={styles.verifiedText}>✓ Verified</Text>
@@ -98,64 +104,61 @@ export default function ProviderDetailScreen() {
             )}
           </View>
 
+          {/* Stats Row */}
           <View style={styles.statsRow}>
             <View style={styles.stat}>
-              <Text style={styles.statValue}>⭐ {provider.rating.toFixed(1)}</Text>
-              <Text style={styles.statLabel}>{provider.totalReviews} reviews</Text>
+              <Text style={styles.statValue}>⭐ {(Number(provider.rating) || 0).toFixed(1)}</Text>
+              <Text style={styles.statLabel}>{provider.totalReviews || 0} reviews</Text>
             </View>
-            {provider.yearsOfExperience && (
-              <View style={styles.stat}>
-                <Text style={styles.statValue}>{provider.yearsOfExperience} years</Text>
-                <Text style={styles.statLabel}>Experience</Text>
-              </View>
-            )}
+            <View style={styles.stat}>
+              <Text style={styles.statValue}>{provider.yearsOfExperience || 0} years</Text>
+              <Text style={styles.statLabel}>Experience</Text>
+            </View>
           </View>
 
-          {/* Categories */}
+          {/* Categories - CRITICAL GUARD HERE */}
           <View style={styles.categoriesRow}>
-            {provider.categories.map((cat) => (
+            {(provider.categories || []).map((cat: any) => (
               <View key={cat.id} style={styles.categoryBadge}>
                 <Text style={styles.categoryText}>{cat.name}</Text>
               </View>
             ))}
           </View>
 
-          {/* Description */}
+          {/* About Section */}
           <Card style={styles.section}>
             <Text style={styles.sectionTitle}>About</Text>
-            <Text style={styles.description}>{provider.description}</Text>
+            <Text style={styles.description}>{provider.description || provider.bio || 'No description available.'}</Text>
           </Card>
 
-          {/* Location */}
+          {/* Location Section */}
           <Card style={styles.section}>
             <Text style={styles.sectionTitle}>Location</Text>
-            <Text style={styles.locationText}>📍 {provider.address}</Text>
-            <Text style={styles.cityText}>{provider.city}</Text>
+            <Text style={styles.locationText}>📍 {provider.address || 'Address hidden'}</Text>
+            <Text style={styles.cityText}>{provider.city || 'City not specified'}</Text>
           </Card>
 
-          {/* Price Range */}
-          {provider.priceRange && (
-            <Card style={styles.section}>
-              <Text style={styles.sectionTitle}>Price Range</Text>
-              <Text style={styles.priceText}>{provider.priceRange}</Text>
-            </Card>
-          )}
+          {/* Price Range Section */}
+          <Card style={styles.section}>
+            <Text style={styles.sectionTitle}>Pricing</Text>
+            <Text style={styles.priceText}>
+              {provider.priceRange || `${(Number(provider.hourlyRate) || 0).toLocaleString()} FCFA/hr`}
+            </Text>
+          </Card>
 
-          {/* Reviews */}
+          {/* Reviews Section - CRITICAL GUARD HERE */}
           <Card style={styles.section}>
             <Text style={styles.sectionTitle}>
               Reviews ({reviews?.length || 0})
             </Text>
-            {reviews && reviews.length > 0 ? (
-              reviews.slice(0, 3).map((review) => (
+            {Array.isArray(reviews) && reviews.length > 0 ? (
+              reviews.slice(0, 3).map((review: any) => (
                 <View key={review.id} style={styles.review}>
                   <View style={styles.reviewHeader}>
-                    <Text style={styles.reviewerName}>{review.customer?.fullName}</Text>
+                    <Text style={styles.reviewerName}>{review.customer?.fullName || 'Anonymous'}</Text>
                     <Text style={styles.reviewRating}>⭐ {review.rating}</Text>
                   </View>
-                  {review.comment && (
-                    <Text style={styles.reviewComment}>{review.comment}</Text>
-                  )}
+                  {review.comment && <Text style={styles.reviewComment}>{review.comment}</Text>}
                 </View>
               ))
             ) : (
@@ -163,24 +166,24 @@ export default function ProviderDetailScreen() {
             )}
           </Card>
 
-          {/* Availability Status */}
-          {!provider.isAvailable && (
+          {/* Availability Guard */}
+          {provider.isAvailable === false && (
             <Card style={[styles.section, styles.unavailableCard]}>
               <Text style={styles.unavailableTitle}>Currently Unavailable</Text>
               <Text style={styles.unavailableText}>
-                This provider is not accepting bookings at the moment
+                This provider is not accepting bookings at the moment.
               </Text>
             </Card>
           )}
         </View>
       </ScrollView>
 
-      {/* Book Now Button */}
+      {/* Footer Button */}
       <View style={styles.footer}>
         <Button
-          title={provider.isAvailable ? 'Book Now' : 'Unavailable'}
+          title={provider.isAvailable !== false ? 'Book Now' : 'Unavailable'}
           onPress={handleBookNow}
-          disabled={!provider.isAvailable}
+          disabled={provider.isAvailable === false}
           size="large"
         />
       </View>

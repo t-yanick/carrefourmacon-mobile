@@ -46,12 +46,12 @@ export default function HomeScreen() {
       }),
   });
   
-  const providers = providersResponse?.data?.providers || [];
+  const providers = providersResponse?.data?.providers || providersResponse?.data || [];
 
   const handleProviderPress = (providerId: string) => {
     router.push(`/provider/${providerId}`);
   };
-
+ //console.log('DEBUG - Providers found:', providers.length);
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       {/* Header */}
