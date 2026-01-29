@@ -3,7 +3,7 @@
     "name": "CarrefourMacon",
     "slug": "carrefourmacon-mobile",
     "version": "1.0.0",
-        "scheme": "carrefourmacon",
+    "scheme": "carrefourmacon",
     "extra": {
       "router": {
         "origin": false
@@ -35,8 +35,8 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router"
-    ],
-    "scheme": "carrefourmacon"
+      "expo-router",
+      "@react-native-community/datetimepicker"
+    ]
   }
 }

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import {
   View,
@@ -15,9 +16,11 @@ import { providersApi } from '@/api/providers';
 import { Button } from '@/components/common/Button';
 import { Card } from '@/components/common/Card';
 import { Colors } from '@/constants/colors';
+import { useAuth } from '@/context/AuthContext'; // 1. Import Auth context
 
 export default function ProviderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { isAuthenticated } = useAuth(); // 2. Get auth state
 
   const { data: response, isLoading } = useQuery({
     queryKey: ['provider', id],
@@ -25,8 +28,8 @@ export default function ProviderDetailScreen() {
     enabled: !!id,
   });
 
-  // Extract provider from response.data (standard Axios pattern)
-  const provider = response?.data || response;
+  // 3. Sophisticated data unpacking (Matches your previous logs)
+  const providerData = response?.provider || response?.data?.provider || response?.data || response;
 
   const { data: reviewsResponse } = useQuery({
     queryKey: ['provider-reviews', id],
@@ -36,11 +39,19 @@ export default function ProviderDetailScreen() {
   
   const reviews = reviewsResponse?.data || reviewsResponse || [];
 
+  // 4. "The Hook": Redirect guests to login, registered users to booking
   const handleBookNow = () => {
-    router.push({
-      pathname: '/booking/create',
-      params: { providerId: id },
-    });
+    if (!isAuthenticated) {
+      router.push({
+        pathname: '/(auth)/login',
+        params: { returnTo: `/provider/${id}` } // Optional: helps return user after login
+      });
+    } else {
+      router.push({
+        pathname: '/booking/create',
+        params: { providerId: id },
+      });
+    }
   };
 
   if (isLoading) {
@@ -51,7 +62,7 @@ export default function ProviderDetailScreen() {
     );
   }
 
-  if (!provider) {
+  if (!providerData) {
     return (
       <View style={styles.loadingContainer}>
         <Text style={styles.errorText}>Provider not found</Text>
@@ -65,12 +76,12 @@ export default function ProviderDetailScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Cover Image Section */}
         <View style={styles.coverContainer}>
-          {provider.coverImage ? (
-            <Image source={{ uri: provider.coverImage }} style={styles.coverImage} />
+          {providerData.coverImage ? (
+            <Image source={{ uri: providerData.coverImage }} style={styles.coverImage} />
           ) : (
             <View style={[styles.coverImage, styles.coverPlaceholder]}>
               <Text style={styles.coverPlaceholderText}>
-                {(provider.businessName?.charAt(0) || 'P').toUpperCase()}
+                {(providerData.name?.charAt(0) || 'P').toUpperCase()}
               </Text>
             </View>
           )}
@@ -83,12 +94,12 @@ export default function ProviderDetailScreen() {
         <View style={styles.infoSection}>
           {/* Profile Image Section */}
           <View style={styles.profileContainer}>
-            {provider.profileImage ? (
-              <Image source={{ uri: provider.profileImage }} style={styles.profileImage} />
+            {providerData.profilePhoto ? (
+              <Image source={{ uri: providerData.profilePhoto }} style={styles.profileImage} />
             ) : (
               <View style={[styles.profileImage, styles.profilePlaceholder]}>
                 <Text style={styles.profilePlaceholderText}>
-                  {(provider.businessName?.charAt(0) || 'P').toUpperCase()}
+                  {(providerData.name?.charAt(0) || 'P').toUpperCase()}
                 </Text>
               </View>
             )}
@@ -96,8 +107,8 @@ export default function ProviderDetailScreen() {
 
           {/* Name and Verification */}
           <View style={styles.nameRow}>
-            <Text style={styles.businessName}>{provider.businessName || 'Professional Provider'}</Text>
-            {provider.isVerified && (
+            <Text style={styles.businessName}>{providerData.name || 'Professional Provider'}</Text>
+            {providerData.verified && (
               <View style={styles.verifiedBadge}>
                 <Text style={styles.verifiedText}>✓ Verified</Text>
               </View>
@@ -107,83 +118,44 @@ export default function ProviderDetailScreen() {
           {/* Stats Row */}
           <View style={styles.statsRow}>
             <View style={styles.stat}>
-              <Text style={styles.statValue}>⭐ {(Number(provider.rating) || 0).toFixed(1)}</Text>
-              <Text style={styles.statLabel}>{provider.totalReviews || 0} reviews</Text>
+              <Text style={styles.statValue}>⭐ {(Number(providerData.rating) || 0).toFixed(1)}</Text>
+              <Text style={styles.statLabel}>{reviews?.length || 0} reviews</Text>
             </View>
             <View style={styles.stat}>
-              <Text style={styles.statValue}>{provider.yearsOfExperience || 0} years</Text>
+              <Text style={styles.statValue}>{providerData.experience || 0} years</Text>
               <Text style={styles.statLabel}>Experience</Text>
             </View>
-          </View>
-
-          {/* Categories - CRITICAL GUARD HERE */}
-          <View style={styles.categoriesRow}>
-            {(provider.categories || []).map((cat: any) => (
-              <View key={cat.id} style={styles.categoryBadge}>
-                <Text style={styles.categoryText}>{cat.name}</Text>
-              </View>
-            ))}
           </View>
 
           {/* About Section */}
           <Card style={styles.section}>
             <Text style={styles.sectionTitle}>About</Text>
-            <Text style={styles.description}>{provider.description || provider.bio || 'No description available.'}</Text>
+            <Text style={styles.description}>{providerData.bio || 'No description available.'}</Text>
+          </Card>
+
+          {/* Price Section */}
+          <Card style={styles.section}>
+            <Text style={styles.sectionTitle}>Pricing</Text>
+            <Text style={styles.priceText}>
+              {Number(providerData.hourlyRate || 0).toLocaleString()} FCFA / hour
+            </Text>
           </Card>
 
           {/* Location Section */}
           <Card style={styles.section}>
             <Text style={styles.sectionTitle}>Location</Text>
-            <Text style={styles.locationText}>📍 {provider.address || 'Address hidden'}</Text>
-            <Text style={styles.cityText}>{provider.city || 'City not specified'}</Text>
-          </Card>
-
-          {/* Price Range Section */}
-          <Card style={styles.section}>
-            <Text style={styles.sectionTitle}>Pricing</Text>
-            <Text style={styles.priceText}>
-              {provider.priceRange || `${(Number(provider.hourlyRate) || 0).toLocaleString()} FCFA/hr`}
+            <Text style={styles.locationText}>
+              📍 {providerData.location?.address || 'Location not specified'}
             </Text>
           </Card>
-
-          {/* Reviews Section - CRITICAL GUARD HERE */}
-          <Card style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              Reviews ({reviews?.length || 0})
-            </Text>
-            {Array.isArray(reviews) && reviews.length > 0 ? (
-              reviews.slice(0, 3).map((review: any) => (
-                <View key={review.id} style={styles.review}>
-                  <View style={styles.reviewHeader}>
-                    <Text style={styles.reviewerName}>{review.customer?.fullName || 'Anonymous'}</Text>
-                    <Text style={styles.reviewRating}>⭐ {review.rating}</Text>
-                  </View>
-                  {review.comment && <Text style={styles.reviewComment}>{review.comment}</Text>}
-                </View>
-              ))
-            ) : (
-              <Text style={styles.noReviews}>No reviews yet</Text>
-            )}
-          </Card>
-
-          {/* Availability Guard */}
-          {provider.isAvailable === false && (
-            <Card style={[styles.section, styles.unavailableCard]}>
-              <Text style={styles.unavailableTitle}>Currently Unavailable</Text>
-              <Text style={styles.unavailableText}>
-                This provider is not accepting bookings at the moment.
-              </Text>
-            </Card>
-          )}
         </View>
       </ScrollView>
 
       {/* Footer Button */}
       <View style={styles.footer}>
         <Button
-          title={provider.isAvailable !== false ? 'Book Now' : 'Unavailable'}
+          title={!isAuthenticated ? "Login to Book" : "Book Now"}
           onPress={handleBookNow}
-          disabled={provider.isAvailable === false}
           size="large"
         />
       </View>

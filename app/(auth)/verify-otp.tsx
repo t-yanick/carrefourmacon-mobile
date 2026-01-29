@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Platform } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/common/Button';
@@ -25,7 +25,6 @@ export default function VerifyOTPScreen() {
     const interval = setInterval(() => {
       setTimer((prev) => (prev > 0 ? prev - 1 : 0));
     }, 1000);
-
     return () => clearInterval(interval);
   }, []);
 
@@ -53,15 +52,11 @@ export default function VerifyOTPScreen() {
     }
   };
 
-    const handleVerifyOTP = async (otpCode?: string) => {
+  const handleVerifyOTP = async (otpCode?: string) => {
     const code = otpCode || otp.join('');
     
     if (code.length !== OTP_CONFIG.length) {
-      Toast.show({
-        type: 'error',
-        text1: 'Invalid OTP',
-        text2: 'Please enter all 6 digits',
-      });
+      Toast.show({ type: 'error', text1: 'Invalid OTP', text2: 'Please enter all 6 digits' });
       return;
     }
 
@@ -73,33 +68,35 @@ export default function VerifyOTPScreen() {
         code: code,
       });
 
-      // Correctly extract token and user from the response.data wrapper
-      if (response.success && response.data) {
-        await login(response.data.token, response.data.user);
-      } else {
-        // Fallback for different API structures
-        await login(response.token, response.user);
-      }
+      // Data extraction based on your API structure
+      const userData = response.data?.user || response.user;
+      const token = response.data?.token || response.token;
+      const isNewUser = response.data?.isNewUser || response.isNewUser;
+
+      // Persist session
+      await login(token, userData);
 
       Toast.show({
         type: 'success',
-        text1: 'Success',
-        text2: response.isNewUser ? 'Account created successfully' : 'Welcome back!',
+        text1: isNewUser ? 'Phone Verified! 🇰🇲' : 'Welcome Back!',
+        text2: isNewUser ? 'Please set up your profile' : 'Logging you in...',
       });
 
-      // Navigate based on role
-      if (response.user?.role === UserRole.PROVIDER) {
+      // 🚀 SOPHISTICATED ROUTING: Handle New vs Returning Users
+      if (isNewUser) {
+        // Send to Role Selection and pass the token for profile completion
+        router.replace({
+          pathname: '/(auth)/role-selection',
+          params: { phoneNumber, token },
+        });
+      } else if (userData?.role === UserRole.PROVIDER) {
         router.replace('/(provider)/dashboard');
       } else {
         router.replace('/(customer)/home');
       }
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || 'Invalid OTP. Please try again.';
-      Toast.show({
-        type: 'error',
-        text1: 'Verification Failed',
-        text2: errorMessage,
-      });
+      Toast.show({ type: 'error', text1: 'Verification Failed', text2: errorMessage });
       setOtp(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
     } finally {
@@ -109,25 +106,14 @@ export default function VerifyOTPScreen() {
 
   const handleResendOTP = async () => {
     setIsResending(true);
-
     try {
       await authApi.sendOTP({ phone: phoneNumber! });
-      
-      Toast.show({
-        type: 'success',
-        text1: 'OTP Resent',
-        text2: 'Check your phone for the new code',
-      });
-
+      Toast.show({ type: 'success', text1: 'OTP Resent', text2: 'Check your phone' });
       setTimer(OTP_CONFIG.expiryMinutes * 60);
       setOtp(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
     } catch (err: any) {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to resend OTP. Please try again.',
-      });
+      Toast.show({ type: 'error', text1: 'Error', text2: 'Could not resend OTP' });
     } finally {
       setIsResending(false);
     }
@@ -142,19 +128,16 @@ export default function VerifyOTPScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Verify Your Phone</Text>
+          <Text style={styles.title}>Verify Phone</Text>
           <Text style={styles.subtitle}>
-            Enter the 6-digit code sent to{'\n'}
-            <Text style={styles.phoneNumber}>{phoneNumber}</Text>
+            Enter the code sent to <Text style={styles.phoneNumber}>{phoneNumber}</Text>
           </Text>
           <TouchableOpacity onPress={() => router.back()}>
             <Text style={styles.changeNumber}>Change number</Text>
           </TouchableOpacity>
         </View>
 
-        {/* OTP Inputs */}
         <View style={styles.otpContainer}>
           {otp.map((digit, index) => (
             <TextInput
@@ -172,30 +155,25 @@ export default function VerifyOTPScreen() {
           ))}
         </View>
 
-        {/* Timer */}
         <View style={styles.timerContainer}>
-          {timer > 0 ? (
-            <Text style={styles.timerText}>Code expires in {formatTime(timer)}</Text>
-          ) : (
-            <Text style={styles.expiredText}>Code expired</Text>
-          )}
+          <Text style={timer > 0 ? styles.timerText : styles.expiredText}>
+            {timer > 0 ? `Expires in ${formatTime(timer)}` : 'Code expired'}
+          </Text>
         </View>
 
-        {/* Verify Button */}
         <Button
-          title="Verify Code"
+          title="Confirm Code"
           onPress={() => handleVerifyOTP()}
           loading={isLoading}
           disabled={otp.some((digit) => !digit)}
           size="large"
         />
 
-        {/* Resend */}
         <View style={styles.resendContainer}>
-          <Text style={styles.resendText}>Didn't receive the code?</Text>
+          <Text style={styles.resendText}>Didn't get it?</Text>
           <TouchableOpacity onPress={handleResendOTP} disabled={isResending || timer > 0}>
             <Text style={[styles.resendButton, (isResending || timer > 0) && styles.resendDisabled]}>
-              {isResending ? 'Sending...' : 'Resend Code'}
+              {isResending ? 'Sending...' : 'Resend OTP'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -205,90 +183,31 @@ export default function VerifyOTPScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background.primary,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 40,
-  },
-  header: {
-    marginBottom: 40,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: Colors.text.primary,
-    marginBottom: 12,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: Colors.text.secondary,
-    lineHeight: 24,
-    marginBottom: 8,
-  },
-  phoneNumber: {
-    fontWeight: '600',
-    color: Colors.text.primary,
-  },
-  changeNumber: {
-    fontSize: 14,
-    color: Colors.primary,
-    fontWeight: '600',
-    marginTop: 8,
-  },
-  otpContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 24,
-  },
+  container: { flex: 1, backgroundColor: '#FFF' },
+  content: { flex: 1, paddingHorizontal: 24, paddingVertical: 40 },
+  header: { marginBottom: 40 },
+  title: { fontSize: 32, fontWeight: 'bold', color: Colors.text.primary, marginBottom: 8 },
+  subtitle: { fontSize: 16, color: Colors.text.secondary, lineHeight: 22 },
+  phoneNumber: { fontWeight: 'bold', color: Colors.text.primary },
+  changeNumber: { color: Colors.primary, fontWeight: '700', marginTop: 10 },
+  otpContainer: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 20 },
   otpInput: {
-    width: 50,
+    width: 48,
     height: 60,
     borderWidth: 2,
-    borderColor: Colors.border.light,
+    borderColor: '#EEE',
     borderRadius: 12,
     textAlign: 'center',
     fontSize: 24,
-    fontWeight: '600',
-    color: Colors.text.primary,
+    fontWeight: 'bold',
+    backgroundColor: '#F9F9F9'
   },
-  otpInputFilled: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primaryLight,
-  },
-  timerContainer: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  timerText: {
-    fontSize: 14,
-    color: Colors.text.secondary,
-  },
-  expiredText: {
-    fontSize: 14,
-    color: Colors.danger,
-    fontWeight: '600',
-  },
-  resendContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 24,
-    gap: 4,
-  },
-  resendText: {
-    fontSize: 14,
-    color: Colors.text.secondary,
-  },
-  resendButton: {
-    fontSize: 14,
-    color: Colors.primary,
-    fontWeight: '600',
-  },
-  resendDisabled: {
-    color: Colors.text.light,
-  },
+  otpInputFilled: { borderColor: Colors.primary, backgroundColor: '#FFF' },
+  timerContainer: { alignItems: 'center', marginBottom: 30 },
+  timerText: { color: '#666' },
+  expiredText: { color: Colors.danger, fontWeight: 'bold' },
+  resendContainer: { flexDirection: 'row', justifyContent: 'center', marginTop: 30, gap: 5 },
+  resendText: { color: '#666' },
+  resendButton: { color: Colors.primary, fontWeight: 'bold' },
+  resendDisabled: { opacity: 0.5 }
 });

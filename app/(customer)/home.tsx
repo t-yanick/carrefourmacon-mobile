@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -19,18 +19,19 @@ import { Colors } from '@/constants/colors';
 import { useAuth } from '@/context/AuthContext';
 
 export default function HomeScreen() {
-  const { user } = useAuth();
+  // Added isAuthenticated to handle the guest flow
+  const { user, isAuthenticated } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  // Fetch categories - Added .data access and fallback array
+  // 1. Fetch Categories
   const { data: categoriesResponse } = useQuery({
     queryKey: ['categories'],
     queryFn: () => providersApi.getCategories(),
   });
   const categories = categoriesResponse?.data || [];
 
-  // Fetch providers - Added .data access and fallback
+  // 2. Fetch Providers
   const {
     data: providersResponse,
     isLoading,
@@ -40,7 +41,7 @@ export default function HomeScreen() {
     queryKey: ['providers', selectedCategory, searchQuery],
     queryFn: () =>
       providersApi.listProviders({
-        categoryId: selectedCategory || undefined,
+        category: selectedCategory || undefined,
         search: searchQuery || undefined,
         limit: 20,
       }),
@@ -48,18 +49,35 @@ export default function HomeScreen() {
   
   const providers = providersResponse?.data?.providers || providersResponse?.data || [];
 
+  useEffect(() => {
+    if (providersResponse) {
+      console.log(`[Home] Loaded ${providers.length} providers`);
+    }
+  }, [providersResponse]);
+
   const handleProviderPress = (providerId: string) => {
     router.push(`/provider/${providerId}`);
   };
- //console.log('DEBUG - Providers found:', providers.length);
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      {/* Header */}
+      {/* Sophisticated Header with Login Option for Guests */}
       <View style={styles.header}>
-        <Text style={styles.greeting}>
-          Hello, {user?.name || 'Guest'}! 👋
-        </Text>
-        <Text style={styles.subtitle}>Find the perfect service provider</Text>
+        <View style={styles.headerTextContainer}>
+          <Text style={styles.greeting}>
+            {isAuthenticated ? `Hello, ${user?.name || 'Partner'}! 👋` : 'Welcome! 👋'}
+          </Text>
+          <Text style={styles.subtitle}>Find the perfect service provider</Text>
+        </View>
+        
+        {!isAuthenticated && (
+          <TouchableOpacity 
+            style={styles.loginButton}
+            onPress={() => router.push('/(auth)/login')}
+          >
+            <Text style={styles.loginButtonText}>Login</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Search Bar */}
@@ -76,7 +94,7 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Categories */}
+      {/* Category Horizontal Filter */}
       <View style={styles.categoriesSection}>
         <ScrollView
           horizontal
@@ -100,7 +118,6 @@ export default function HomeScreen() {
             </Text>
           </TouchableOpacity>
 
-          {/* Fixed map by ensuring categories is an array */}
           {Array.isArray(categories) && categories.map((category: any) => (
             <TouchableOpacity
               key={category.id}
@@ -124,7 +141,7 @@ export default function HomeScreen() {
         </ScrollView>
       </View>
 
-      {/* Providers List */}
+      {/* Main Providers List */}
       <View style={styles.providersSection}>
         <Text style={styles.sectionTitle}>
           {selectedCategory
@@ -135,12 +152,12 @@ export default function HomeScreen() {
         {isLoading && !providersResponse ? (
           <View style={styles.centerContent}>
             <ActivityIndicator color={Colors.primary} size="large" />
-            <Text style={styles.loadingText}>Loading providers...</Text>
+            <Text style={styles.loadingText}>Searching for professionals...</Text>
           </View>
         ) : providers.length === 0 ? (
           <View style={styles.centerContent}>
             <Text style={styles.emptyText}>No providers found</Text>
-            <Text style={styles.emptySubtext}>Try a different search or category</Text>
+            <Text style={styles.emptySubtext}>Try a different search term or category</Text>
           </View>
         ) : (
           <FlatList

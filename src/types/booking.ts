@@ -38,9 +38,11 @@ export interface Booking {
 
 export interface CreateBookingRequest {
   providerId: string;
-  scheduledDate: string;
+  scheduledAt: string;
   description: string;
-  estimatedPrice?: number;
+  price?: number;
+  location?: any;
+  categoryId: string;
 }
 
 export interface BookingListResponse {

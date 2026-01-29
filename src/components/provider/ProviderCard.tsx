@@ -1,11 +1,11 @@
+
 import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { Card } from '@/components/common/Card';
-import { Provider } from '@/types/provider';
 import { Colors } from '@/constants/colors';
 
 interface ProviderCardProps {
-  provider: Provider;
+  provider: any; // Using any to handle the formatted backend response
   onPress: () => void;
 }
 
@@ -15,16 +15,18 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({ provider, onPress })
       <View style={styles.content}>
         {/* Provider Image */}
         <View style={styles.imageContainer}>
-          {provider.profileImage ? (
-            <Image source={{ uri: provider.profileImage }} style={styles.image} />
+          {/* Backend uses 'profilePhoto' */}
+          {provider.profilePhoto ? (
+            <Image source={{ uri: provider.profilePhoto }} style={styles.image} />
           ) : (
             <View style={[styles.image, styles.placeholder]}>
               <Text style={styles.placeholderText}>
-                {(provider.businessName?.charAt(0) || 'P').toUpperCase()}
+                {/* Backend uses 'name' */}
+                {(provider.name?.charAt(0) || 'P').toUpperCase()}
               </Text>
             </View>
           )}
-          {provider.isVerified && (
+          {provider.verified && (
             <View style={styles.verifiedBadge}>
               <Text style={styles.verifiedText}>✓</Text>
             </View>
@@ -33,28 +35,28 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({ provider, onPress })
 
         {/* Provider Info */}
         <View style={styles.info}>
+          {/* Backend uses 'name' */}
           <Text style={styles.businessName} numberOfLines={1}>
-            {provider.businessName}
+            {provider.name || 'Professional Provider'}
           </Text>
           
           <View style={styles.categoryRow}>
-            {provider.categories.slice(0, 2).map((cat, index) => (
+            {(provider.categories || []).slice(0, 2).map((cat: any) => (
               <View key={cat.id} style={styles.categoryBadge}>
                 <Text style={styles.categoryText} numberOfLines={1}>
                   {cat.name}
                 </Text>
               </View>
             ))}
-            {provider.categories.length > 2 && (
+            {(provider.categories?.length || 0) > 2 && (
               <Text style={styles.moreCategories}>
-                +{provider.categories.length - 2}
+                +{(provider.categories?.length || 0) - 2}
               </Text>
             )}
           </View>
 
           <View style={styles.details}>
-             <View style={styles.ratingRow}>
-              {/* Use Number() and || 0 to ensure toFixed(1) always has a value to work with */}
+            <View style={styles.ratingRow}>
               <Text style={styles.rating}>
                 ⭐ {(Number(provider.rating) || 0).toFixed(1)}
               </Text>
@@ -62,17 +64,22 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({ provider, onPress })
                 ({provider.totalReviews || 0})
               </Text>
             </View>
-              {/* Add a fallback for city in case it is null */}
-            <Text style={styles.location}>
-              📍 {provider.city || 'Location not set'}
+            
+            {/* FIXED: Backend uses 'location' instead of 'city' */}
+            <Text style={styles.location} numberOfLines={1}>
+              📍 {typeof provider.location === 'object' ? provider.location?.address : (provider.location || 'Location not set')}
             </Text>
           </View>
 
-          {provider.priceRange && (
-            <Text style={styles.priceRange}>{provider.priceRange}</Text>
+          {/* FIXED: Backend uses 'hourlyRate' */}
+          {provider.hourlyRate && (
+            <Text style={styles.priceRange}>
+              {Number(provider.hourlyRate).toLocaleString()} FCFA/hr
+            </Text>
           )}
 
-          {!provider.isAvailable && (
+          {/* FIXED: Backend uses 'status' to determine availability */}
+          {provider.status?.toUpperCase() !== 'APPROVED' && (
             <View style={styles.unavailableBadge}>
               <Text style={styles.unavailableText}>Currently Unavailable</Text>
             </View>
